@@ -1,0 +1,43 @@
+# Python virtual environments
+venv/
+.venv/
+backend/venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# build files
+dist/
+build/
+*.egg-info
+
+# environment files
+.env
+
+# VS Code
+.vscode/
+# Python
+venv/
+.venv/
+backend/venv/
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Environment
+.env
+
+# Build
+dist/
+build/
+
+# IDE
+.vscode/
