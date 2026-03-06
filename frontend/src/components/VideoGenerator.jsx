@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getStyleOptions, suggestStyle, generateVideo, pollVideoStatus, getVideoUrl } from '../api';
 
+// Always-available fallback options (used immediately, replaced by API response)
+const FALLBACK_OPTIONS = {
+  shot_styles: ['close_up', 'wide_shot', 'tracking_shot', 'drone', 'dutch_angle', 'over_shoulder'],
+  cinematic_styles: ['neon_noir', 'golden_hour', 'desaturated', 'high_contrast_bw', 'vibrant_pop', 'earth_tones', 'teal_orange'],
+  moods: ['thriller', 'drama', 'action', 'romance', 'mystery', 'sci_fi'],
+};
+
 // Style display labels
 const STYLE_LABELS = {
   shot_styles: {
@@ -68,42 +75,51 @@ const StatusBadge = ({ status }) => {
 };
 
 export default function VideoGenerator({ episode, genre = 'drama' }) {
-  const [styleOptions, setStyleOptions] = useState(null);
+  const [styleOptions, setStyleOptions] = useState(FALLBACK_OPTIONS);
+  const [optionsLoading, setOptionsLoading] = useState(true);
   const [shotStyle, setShotStyle] = useState('wide_shot');
   const [cinematicStyle, setCinematicStyle] = useState('teal_orange');
   const [mood, setMood] = useState('drama');
   const [resolution, setResolution] = useState('480p');
   const [suggesting, setSuggesting] = useState(false);
   const [suggestion, setSuggestion] = useState(null);
-  const [generationState, setGenerationState] = useState(null); // null | 'started' | 'polling' | 'done' | 'error'
+  const [generationState, setGenerationState] = useState(null);
   const [jobInfo, setJobInfo] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
+  const [clipsReady, setClipsReady] = useState(0);
+  const [errorMsg, setErrorMsg] = useState(null);
   const pollRef = useRef(null);
 
   useEffect(() => {
-    getStyleOptions().then(setStyleOptions).catch(console.error);
+    getStyleOptions()
+      .then(data => { setStyleOptions(data); setOptionsLoading(false); })
+      .catch(() => { setOptionsLoading(false); }); // fallback already set, just stop loading
   }, []);
 
-  // Poll for video status
   useEffect(() => {
     if (generationState !== 'polling' || !jobInfo?.job_id) return;
 
     pollRef.current = setInterval(async () => {
       try {
         const status = await pollVideoStatus(jobInfo.job_id);
+        // Update clip progress if backend reports it
+        if (typeof status.clips_generated === 'number') {
+          setClipsReady(status.clips_generated);
+        }
         if (status.status === 'done') {
           clearInterval(pollRef.current);
+          setClipsReady(18);
           setGenerationState('done');
           setVideoUrl(getVideoUrl(status.video_filename));
         } else if (status.status === 'error') {
           clearInterval(pollRef.current);
           setGenerationState('error');
-          console.error('Video generation error:', status.error);
+          setErrorMsg(status.error || 'Unknown generation error.');
         }
       } catch (e) {
         console.error('Polling error:', e);
       }
-    }, 5000);
+    }, 4000);
 
     return () => clearInterval(pollRef.current);
   }, [generationState, jobInfo]);
@@ -130,24 +146,31 @@ export default function VideoGenerator({ episode, genre = 'drama' }) {
     if (!episode) return;
     setGenerationState('started');
     setVideoUrl(null);
+    setErrorMsg(null);
+    setClipsReady(0);
     try {
-      // Break the script into 18 segments for multi-shot generation
       const lines = episode.script_segment.split('\n').filter(l => l.trim().length > 5);
       const segments = lines.length > 0 ? lines : [episode.synopsis];
-      
       const data = await generateVideo(segments, shotStyle, cinematicStyle, mood, resolution);
       setJobInfo(data);
       setGenerationState('polling');
     } catch (e) {
       console.error('Video generation failed:', e);
+      setErrorMsg(e?.response?.data?.detail || e.message || 'Failed to connect to backend.');
       setGenerationState('error');
     }
   };
 
-  if (!styleOptions) return null;
+  const TOTAL_CLIPS = 18;
+  const progressPct = generationState === 'done' ? 100
+    : generationState === 'polling' ? Math.max(5, Math.round((clipsReady / TOTAL_CLIPS) * 100))
+    : generationState === 'started' ? 3
+    : 0;
+
+  const isGenerating = generationState === 'started' || generationState === 'polling';
 
   return (
-    <div className="mt-8 border-t border-gray-700 pt-8">
+    <div className="mt-2">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <div className="h-8 w-1 bg-gradient-to-b from-violet-500 to-fuchsia-500 rounded-full" />
@@ -268,32 +291,63 @@ export default function VideoGenerator({ episode, genre = 'drama' }) {
       {/* Generate Button */}
       <button
         onClick={handleGenerate}
-        disabled={generationState === 'polling' || !episode}
-        className="w-full py-4 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-indigo-600 hover:from-fuchsia-700 hover:via-violet-700 hover:to-indigo-700 rounded-xl font-bold text-white text-lg transition-all shadow-[0_0_30px_rgba(139,92,246,0.35)] disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={isGenerating || !episode}
+        className={`w-full py-4 rounded-xl font-bold text-white text-lg transition-all ${
+          isGenerating
+            ? 'bg-gray-700 cursor-wait'
+            : 'bg-gradient-to-r from-fuchsia-600 via-violet-600 to-indigo-600 hover:from-fuchsia-700 hover:via-violet-700 hover:to-indigo-700 shadow-[0_0_30px_rgba(139,92,246,0.35)]'
+        } disabled:opacity-60 disabled:cursor-not-allowed`}
       >
-        {generationState === 'polling'
-          ? '⏳ Generating 18 Scenes... Please wait'
+        {generationState === 'done'
+          ? '✅ Video Ready!'
+          : isGenerating
+          ? `⏳ Generating Clip ${clipsReady}/${TOTAL_CLIPS}...`
           : '🎬 Generate 90-Second Episode Video'}
       </button>
 
-      {/* Status Panel */}
-      {jobInfo && (
-        <div className="mt-4 bg-gray-900 border border-gray-700 rounded-xl p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-400">Job ID: <code className="text-xs text-violet-300">{jobInfo.job_id}</code></span>
-            <StatusBadge status={generationState === 'polling' ? 'generating' : generationState} />
+      {/* Progress Bar — visible immediately on click */}
+      {(isGenerating || generationState === 'done') && (
+        <div className="mt-4">
+          <div className="flex justify-between text-xs text-gray-400 mb-1.5">
+            <span>
+              {generationState === 'done'
+                ? '✅ All clips generated & merged!'
+                : generationState === 'started'
+                ? '🔄 Connecting to generation engine...'
+                : `🎞 Generating scene ${clipsReady + 1} of ${TOTAL_CLIPS}...`}
+            </span>
+            <span className="font-bold text-violet-400">{progressPct}%</span>
           </div>
-          {generationState === 'polling' && (
-            <div className="mt-3">
-              <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-full animate-pulse w-2/3 transition-all" />
-              </div>
-              <p className="text-xs text-gray-500 mt-2">Generating {18} clips via Wan2.2-T2V-A14B diffusion model...</p>
-            </div>
+          <div className="h-3 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
+            <div
+              className={`h-full rounded-full transition-all duration-1000 ${
+                generationState === 'done'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-400'
+                  : 'bg-gradient-to-r from-violet-600 to-fuchsia-500 animate-pulse'
+              }`}
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          {jobInfo && (
+            <p className="text-xs text-gray-600 mt-1.5">
+              Job ID: <code className="text-violet-400">{jobInfo.job_id}</code>
+              {generationState === 'polling' && <span className="ml-2 text-gray-600">· polling every 4s</span>}
+            </p>
           )}
-          {generationState === 'error' && (
-            <p className="text-sm text-red-400 mt-2">⚠️ Generation failed. Check that the Wan2.2 model is accessible and you have sufficient VRAM.</p>
-          )}
+        </div>
+      )}
+
+      {/* Error Card */}
+      {generationState === 'error' && (
+        <div className="mt-4 bg-red-900/20 border border-red-700/50 rounded-xl p-4">
+          <p className="text-sm font-bold text-red-400 mb-1">⚠️ Generation Failed</p>
+          <p className="text-xs text-red-300/80">{errorMsg || 'An unknown error occurred. Check that the backend server is running on port 8000.'}</p>
+          <button
+            onClick={() => { setGenerationState(null); setErrorMsg(null); }}
+            className="mt-3 px-3 py-1.5 bg-red-800 hover:bg-red-700 rounded text-xs text-white font-medium"
+          >
+            Dismiss & Retry
+          </button>
         </div>
       )}
 

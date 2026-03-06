@@ -12,12 +12,18 @@ import tempfile
 import subprocess
 from typing import List, Dict, Any
 
+import torch
+import numpy as np
+import imageio
+from diffusers import WanPipeline
+from diffusers.schedulers.scheduling_unipc_multistep import UniPCMultistepScheduler
+
 # ── Configuration ──────────────────────────────────────────────────────────────
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT_DIR = os.path.join(BACKEND_DIR, "generated_videos")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-MODEL_ID = "Wan-AI/Wan2.1-T2V-1.3B"  # Consumer-friendly model; works on 4GB+ GPUs via CPU offloading
+MODEL_ID = "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"  # Consumer-friendly model; works on 4GB+ GPUs via CPU offloading
 
 # Shot duration constants
 FRAMES_PER_CLIP = 81          # ~5 seconds at 16fps (default for Wan2.2)
@@ -81,12 +87,8 @@ def _build_scene_prompt(base_prompt: str, shot_style: str, cinematic_style: str,
 
 
 def _load_pipeline():
-    """Lazy-load the Wan2.1-T2V-1.3B pipeline with CPU offloading for low-VRAM GPUs."""
+    """Load the Wan2.1-T2V-1.3B pipeline with CPU offloading for low-VRAM GPUs."""
     try:
-        import torch
-        from diffusers import WanPipeline
-        from diffusers.schedulers.scheduling_unipc_multistep import UniPCMultistepScheduler
-
         print(f"[video_generator] Loading Wan2.1-1.3B pipeline from {MODEL_ID}...")
         
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -120,10 +122,8 @@ def _load_pipeline():
 def _export_clip(frames, fps: int, out_path: str):
     """Export a list of PIL frames to an MP4 using imageio."""
     try:
-        import imageio
         writer = imageio.get_writer(out_path, fps=fps, codec="libx264", quality=8)
         for frame in frames:
-            import numpy as np
             writer.append_data(np.array(frame))
         writer.close()
     except Exception as e:
@@ -151,9 +151,6 @@ def _concatenate_clips_ffmpeg(clip_paths: List[str], output_path: str):
 
 def _concatenate_clips_imageio(clip_paths: List[str], output_path: str):
     """Fallback concatenation using imageio directly."""
-    import imageio
-    import numpy as np
-    
     writer = imageio.get_writer(output_path, fps=TARGET_FPS, codec="libx264", quality=8)
     for cp in clip_paths:
         reader = imageio.get_reader(cp)
@@ -175,6 +172,7 @@ def generate_episode_video(
     mood: str = "drama",
     resolution: str = "480p",
     job_id: str = None,
+    progress_callback = None,
 ) -> Dict[str, Any]:
     """
     Generate a ~90-second video from a list of script segments.
@@ -232,6 +230,8 @@ def generate_episode_video(
         _export_clip(frames, TARGET_FPS, clip_path)
         clip_paths.append(clip_path)
         print(f"[video_generator] Clip {i+1} saved: {clip_path}")
+        if progress_callback:
+            progress_callback(i + 1, NUM_CLIPS)
     
     # Concatenate all clips
     final_path = os.path.join(OUTPUT_DIR, f"episode_{job_id}.mp4")

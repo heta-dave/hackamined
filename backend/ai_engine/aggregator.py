@@ -1,5 +1,8 @@
-from . import narrative_dna, emotion, cliffhanger, retention, viral, tension, story_decomposer
-import collections
+import traceback
+from . import (
+    narrative_dna, emotion, cliffhanger, retention, 
+    viral, tension, story_decomposer
+)
 
 class NarrativeDNAAggregator:
     def __init__(self):

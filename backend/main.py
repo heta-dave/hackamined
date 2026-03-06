@@ -181,9 +181,7 @@ async def improve_cliffhanger(request: ImprovementRequest):
             predicted_score=current_score
         )
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 # ── Video Generation Endpoints ────────────────────────────────────────────────
@@ -271,7 +269,14 @@ _video_jobs: dict = {}
 def _run_video_generation(job_id: str, request_data: dict):
     """Background task that runs the actual diffusion generation."""
     from ai_engine.video_generator import generate_episode_video
-    _video_jobs[job_id] = {"status": "generating", "progress": 0}
+    _video_jobs[job_id] = {"status": "generating", "progress": 0, "clips_generated": 0}
+    
+    def on_progress(clips, total_clips):
+        _video_jobs[job_id]["clips_generated"] = clips
+        _video_jobs[job_id]["total_clips"] = total_clips
+        # We can also compute a percentage here if wanted, but frontend relies on clips_generated mostly
+        _video_jobs[job_id]["progress"] = int((clips / total_clips) * 100)
+
     try:
         result = generate_episode_video(
             script_segments=request_data["script_segments"],
@@ -280,6 +285,7 @@ def _run_video_generation(job_id: str, request_data: dict):
             mood=request_data["mood"],
             resolution=request_data["resolution"],
             job_id=job_id,
+            progress_callback=on_progress,
         )
         _video_jobs[job_id] = {"status": "done", **result}
     except Exception as e:
@@ -321,3 +327,8 @@ async def serve_video(filename: str):
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Video not found")
     return FileResponse(path, media_type="video/mp4", filename=filename)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
