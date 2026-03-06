@@ -30,7 +30,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 p-6 font-sans">
+    <div className="min-h-screen bg-[#fbfbfb] text-[#555] p-6 font-sans selection:bg-black selection:text-white">
       <div className="max-w-7xl mx-auto">
 
 

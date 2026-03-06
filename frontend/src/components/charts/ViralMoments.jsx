@@ -11,31 +11,31 @@ const ViralMoments = ({ moments }) => {
     }
 
     return (
-        <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-            <h3 className="text-gray-500 font-semibold text-sm mb-6 uppercase tracking-wider">
-                Top Viral Moments Timeline
+        <div className="w-full">
+            <h3 className="text-[10px] font-mono font-bold text-gray-500 uppercase tracking-[0.2em] mb-8">
+                Narrative Viral Signals
             </h3>
 
-            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-pink-500 before:to-gray-50">
+            <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-[#f0f0f0]">
 
                 {moments.map((moment, idx) => (
                     <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                         {/* Timeline dot */}
-                        <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-gray-100 text-gray-500 group-hover:text-purple-600 group-hover:bg-white shadow-md transform transition-transform group-hover:scale-110 absolute left-0 md:left-1/2 -translate-x-1/2 z-10">
-                            <span className="font-bold text-xs">{idx + 1}</span>
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full border border-[#f0f0f0] bg-white text-gray-400 group-hover:text-black group-hover:border-black/10 shadow-sm transition-all absolute left-0 md:left-1/2 -translate-x-1/2 z-10">
+                            <span className="font-mono text-[10px] font-bold">{idx + 1}</span>
                         </div>
 
                         {/* Content Card */}
-                        <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-lg bg-white border border-gray-200 shadow-sm group-hover:border-purple-300 transition-colors ml-14 md:ml-0">
-                            <div className="flex justify-between items-start mb-2">
-                                <span className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-pink-600 bg-pink-50 rounded border border-pink-200">
+                        <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2rem)] p-5 rounded-2xl bg-[#fafafa] border border-[#f0f0f0] group-hover:bg-white group-hover:shadow-[0_10px_30px_-15px_rgba(0,0,0,0.05)] transition-all ml-14 md:ml-0">
+                            <div className="flex justify-between items-start mb-3">
+                                <span className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gray-500 bg-white rounded border border-[#f0f0f0]">
                                     {moment.reason}
                                 </span>
-                                <span className="text-sm font-mono text-gray-500" title="Viral Score">
-                                    {moment.score.toFixed(2)}
+                                <span className="text-[10px] font-mono text-gray-400" title="Viral Score">
+                                    SCORE: {moment.score.toFixed(2)}
                                 </span>
                             </div>
-                            <p className="text-sm text-gray-700 leading-relaxed italic border-l-2 border-purple-400 pl-3">
+                            <p className="text-gray-600 text-sm leading-relaxed italic border-l border-black/5 pl-4 py-1">
                                 "{moment.text}"
                             </p>
                         </div>

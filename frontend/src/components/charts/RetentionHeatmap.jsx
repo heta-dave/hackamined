@@ -13,9 +13,8 @@ const RetentionHeatmap = ({ data }) => {
     };
 
     return (
-        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 w-full">
-            <h3 className="text-gray-500 font-semibold text-sm mb-4 uppercase tracking-wider">Retention Drop-off Risk Heatmap</h3>
-            <div className="flex w-full h-12 rounded-lg overflow-hidden border border-gray-300 shadow-inner">
+        <div className="w-full">
+            <div className="flex w-full h-8 rounded-lg overflow-hidden border border-[#f0f0f0] mb-4">
                 {data.map((segment, idx) => (
                     <div
                         key={idx}
@@ -29,7 +28,7 @@ const RetentionHeatmap = ({ data }) => {
                     </div>
                 ))}
             </div>
-            <div className="flex w-full mt-2 justify-between px-2 text-xs text-gray-500 font-mono">
+            <div className="flex w-full mt-2 justify-between px-2 text-xs text-gray-400 font-mono">
                 {data.map((segment, idx) => (
                     <span key={idx} className="flex-1 text-center">{segment.time_range}</span>
                 ))}

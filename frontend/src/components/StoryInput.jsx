@@ -37,108 +37,125 @@ const StoryInput = ({ onGenerate, onUpload, isLoading }) => {
   };
 
   return (
-    <div className="relative p-8 bg-white text-gray-900 rounded-xl shadow-xl border border-gray-200">
-      <div className="absolute top-6 right-8 text-xs font-mono text-gray-400">
-        v2.1
+    <div className="relative p-10 bg-white text-gray-900 rounded-3xl shadow-[0_10px_50px_-15px_rgba(0,0,0,0.1)] border border-[#f0f0f0] overflow-hidden">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-black/5 to-transparent"></div>
+
+      <div className="absolute top-8 right-10 text-[10px] font-mono text-gray-400 tracking-widest uppercase">
+        System v2.4
       </div>
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold mb-2 text-black">
-          Narrative DNA Engine
+
+      <div className="mb-12">
+        <h2 className="text-4xl font-black mb-3 text-black tracking-tighter uppercase">
+          Narrative DNA <span className="text-gray-300">Engine</span>
         </h2>
-        <p className="text-sm text-gray-500">
-          Decode the genetic architecture of your story — every great narrative shares the same code.
+        <p className="text-gray-500 max-w-md text-sm leading-relaxed">
+          Decode the genetic architecture of your story.
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex w-full border-b border-gray-200 mb-6 font-medium">
+      <div className="flex w-full bg-[#fafafa] p-1.5 rounded-xl mb-8 font-bold text-xs uppercase tracking-widest border border-[#f0f0f0]">
         <button
-          className={`flex-1 text-center pb-3 px-4 transition-colors ${activeTab === 'generate' ? 'border-b-2 border-black text-black' : 'text-gray-500 hover:text-gray-700'}`}
+          className={`flex-1 py-3 px-4 rounded-lg transition-all ${activeTab === 'generate' ? 'bg-white text-black shadow-sm border border-[#f0f0f0]' : 'text-gray-400 hover:text-gray-600'}`}
           onClick={() => setActiveTab('generate')}
         >
-          Story Title & Synopsis
+          Synthesize Arc
         </button>
         <button
-          className={`flex-1 text-center pb-3 px-4 transition-colors ${activeTab === 'upload' ? 'border-b-2 border-black text-black' : 'text-gray-500 hover:text-gray-700'}`}
+          className={`flex-1 py-3 px-4 rounded-lg transition-all ${activeTab === 'upload' ? 'bg-white text-black shadow-sm border border-[#f0f0f0]' : 'text-gray-400 hover:text-gray-600'}`}
           onClick={() => setActiveTab('upload')}
         >
-          Upload Existing Script
+          Import Sequence
         </button>
       </div>
 
       {activeTab === 'generate' && (
-        <div className="space-y-4 animate-fade-in">
+        <div className="space-y-6 animate-fade-in">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Genre</label>
-            <select
-              value={genre}
-              onChange={(e) => setGenre(e.target.value)}
-              className="w-full p-3 bg-gray-50 rounded border border-gray-300 focus:border-black outline-none text-black transition-colors"
-            >
-              <option>Sci-Fi</option>
-              <option>Thriller</option>
-              <option>Romance</option>
-              <option>Horror</option>
-              <option>Fantasy</option>
-              <option>Mystery</option>
-              <option>Drama</option>
-              <option>Comedy</option>
-            </select>
+            <label className="block text-[10px] font-mono font-bold text-gray-400 mb-2 uppercase tracking-widest">Story Genre</label>
+            <div className="relative">
+              <select
+                value={genre}
+                onChange={(e) => setGenre(e.target.value)}
+                className="w-full p-4 bg-[#fafafa] rounded-xl border border-[#f0f0f0] focus:border-black/10 outline-none text-black transition-all appearance-none cursor-pointer"
+              >
+                {['Sci-Fi', 'Thriller', 'Romance', 'Horror', 'Fantasy', 'Mystery', 'Drama', 'Comedy'].map(g => (
+                  <option key={g} className="bg-white">{g}</option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-300">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">What is your story about?</label>
+            <label className="block text-[10px] font-mono font-bold text-gray-400 mb-2 uppercase tracking-widest">Narrative Core</label>
             <textarea
               value={idea}
               onChange={(e) => setIdea(e.target.value)}
-              className="w-full p-3 h-32 bg-gray-50 rounded border border-gray-300 focus:border-blue-500 outline-none text-black placeholder-gray-400"
-              placeholder="e.g. 'The Matrix' - A hacker discovers his entire reality is a computer simulation..."
+              className="w-full p-5 h-40 bg-[#fafafa] rounded-2xl border border-[#f0f0f0] focus:border-black/10 outline-none text-black placeholder-gray-300 transition-all resize-none text-sm leading-relaxed"
+              placeholder="A hacker discovers his entire reality is a computer simulation..."
             />
           </div>
           <button
             onClick={() => onGenerate(idea, genre)}
             disabled={isLoading || !idea.trim()}
-            className="w-full py-4 bg-black text-white hover:bg-gray-800 rounded font-bold text-lg transition-all flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-5 bg-black text-white hover:bg-gray-900 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex justify-center items-center disabled:opacity-30 disabled:cursor-not-allowed group shadow-lg"
           >
             {isLoading ? (
               <DNALoader />
             ) : (
-              "Generate Narrative Arc"
+              <span className="flex items-center gap-2">
+                Sequence Arc
+                <svg className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7-7 7" />
+                </svg>
+              </span>
             )}
           </button>
         </div>
       )}
 
       {activeTab === 'upload' && (
-        <div className="space-y-4 animate-fade-in">
+        <div className="space-y-6 animate-fade-in">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Upload File (.txt) or Paste Script Below</label>
+            <label className="block text-[10px] font-mono font-bold text-gray-400 mb-3 uppercase tracking-widest leading-relaxed">
+              Sequence Import (.txt) or Direct Input
+            </label>
             <input
               type="file"
               accept=".txt"
               onChange={handleFileUpload}
-              className="block w-full text-sm text-gray-500 mb-4
-                file:mr-4 file:py-2 file:px-4
-                file:rounded file:border-0
-                file:text-sm file:font-semibold
-                file:bg-gray-100 file:text-black
-                hover:file:bg-gray-200 cursor-pointer"
+              className="block w-full text-xs text-gray-400 mb-6
+                file:mr-4 file:py-2.5 file:px-6
+                file:rounded-full file:border file:border-[#f0f0f0]
+                file:text-[10px] file:font-black file:uppercase file:tracking-widest
+                file:bg-[#fafafa] file:text-black
+                hover:file:bg-[#f5f5f5] hover:file:border-[#e5e5e5] cursor-pointer"
             />
             <textarea
               value={scriptText}
               onChange={(e) => setScriptText(e.target.value)}
-              className="w-full p-3 h-48 bg-gray-50 rounded border border-gray-300 focus:border-purple-500 outline-none text-black placeholder-gray-400"
+              className="w-full p-5 h-48 bg-[#fafafa] rounded-2xl border border-[#f0f0f0] focus:border-black/10 outline-none text-black placeholder-gray-300 transition-all resize-none text-sm leading-relaxed font-mono"
               placeholder="INT. ROOM - DAY&#10;&#10;JOHN enters the room quickly..."
             />
           </div>
           <button
             onClick={() => onUpload(scriptText)}
             disabled={isLoading || !scriptText.trim()}
-            className="w-full py-4 bg-black text-white hover:bg-gray-800 rounded font-bold text-lg transition-all flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-5 bg-black text-white hover:bg-gray-900 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex justify-center items-center disabled:opacity-30 disabled:cursor-not-allowed group shadow-lg"
           >
             {isLoading ? (
-              <span className="animate-pulse">Analyzing...</span>
+              <span className="animate-pulse">Sequencing...</span>
             ) : (
-              "Analyze Script"
+              <span className="flex items-center gap-2">
+                Start Analysis
+                <svg className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7-7 7" />
+                </svg>
+              </span>
             )}
           </button>
         </div>

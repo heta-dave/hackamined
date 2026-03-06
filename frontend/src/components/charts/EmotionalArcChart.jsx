@@ -66,12 +66,12 @@ const EmotionalArcChart = ({ data }) => {
     svg.append("g")
       .attr("transform", `translate(0,${height - margin.bottom})`)
       .call(d3.axisBottom(x).ticks(5).tickFormat(d => `Beat ${d}`))
-      .attr("color", "#6B7280");
+      .attr("color", "#eaeaea");
 
     svg.append("g")
       .attr("transform", `translate(${margin.left},0)`)
       .call(d3.axisLeft(y).ticks(3))
-      .attr("color", "#6B7280");
+      .attr("color", "#eaeaea");
 
     // Zero line
     svg.append("line")
@@ -79,14 +79,13 @@ const EmotionalArcChart = ({ data }) => {
       .attr("x2", width - margin.right)
       .attr("y1", y(0))
       .attr("y2", y(0))
-      .attr("stroke", "#D1D5DB")
+      .attr("stroke", "#f0f0f0")
       .attr("stroke-dasharray", "4");
 
   }, [data]);
 
   return (
-    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-      <h3 className="text-gray-500 font-semibold text-sm mb-2 uppercase tracking-wider">Emotional Volatility</h3>
+    <div className="w-full">
       <svg ref={svgRef} viewBox="0 0 500 200" className="w-full h-auto"></svg>
     </div>
   );

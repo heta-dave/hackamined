@@ -23,24 +23,24 @@ const CliffhangerMeter = ({ score }) => {
     }
 
     return (
-        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-            <h3 className="text-gray-500 font-semibold text-sm mb-2 uppercase tracking-wider flex justify-between">
+        <div className="w-full">
+            <h3 className="text-gray-400 font-bold text-[10px] mb-6 uppercase tracking-[0.2em] flex justify-between">
                 Cliffhanger Strength
-                <span className={`font-bold ${statusColor}`}>{normalizedScore.toFixed(0)} / 100</span>
+                <span className={`font-black ${statusColor}`}>{normalizedScore.toFixed(0)} / 100</span>
             </h3>
 
             <div className="mt-4">
-                <div className="flex justify-between text-xs text-gray-500 mb-1 w-full font-mono">
+                <div className="flex justify-between text-[10px] text-gray-400 mb-2 w-full font-mono uppercase tracking-widest">
                     <span>Resolving</span>
                     <span className={`${statusColor} font-bold`}>{statusText}</span>
                     <span>Unresolved</span>
                 </div>
 
                 {/* Progress bar container */}
-                <div className="h-4 w-full bg-gray-200 rounded-full overflow-hidden border border-gray-300 shadow-inner">
+                <div className="h-2 w-full bg-[#fafafa] rounded-full overflow-hidden border border-[#f0f0f0]">
                     {/* Animated progress bar fill */}
                     <div
-                        className={`h-full ${barColor} shadow-[0_0_10px_currentColor] transition-all duration-1000 ease-out`}
+                        className={`h-full ${barColor} transition-all duration-1000 ease-out`}
                         style={{ width: `${normalizedScore}%` }}
                     ></div>
                 </div>

@@ -27,8 +27,8 @@ const CharacterGraph = ({ data }) => {
 
         // Draw Links (edges)
         const link = g.append("g")
-            .attr("stroke", "#4B5563") // text-gray-600
-            .attr("stroke-opacity", 0.6)
+            .attr("stroke", "#eee")
+            .attr("stroke-opacity", 0.8)
             .selectAll("line")
             .data(data.interaction_graph.edges)
             .join("line")
@@ -36,13 +36,13 @@ const CharacterGraph = ({ data }) => {
 
         // Draw Nodes
         const node = g.append("g")
-            .attr("stroke", "#D1D5DB") // text-gray-300
+            .attr("stroke", "#fff")
             .attr("stroke-width", 2)
             .selectAll("circle")
             .data(data.interaction_graph.nodes)
             .join("circle")
-            .attr("r", 15)
-            .attr("fill", "#8B5CF6") // Tailwind purple-500
+            .attr("r", 12)
+            .attr("fill", "#000") // Black for nodes in light theme
             .call(drag(simulation));
 
         // Draw Text Labels
@@ -50,12 +50,13 @@ const CharacterGraph = ({ data }) => {
             .selectAll("text")
             .data(data.interaction_graph.nodes)
             .join("text")
-            .attr("dy", -20) // Above the node
+            .attr("dy", -18) // Above the node
             .attr("text-anchor", "middle")
             .text(d => d.id)
-            .attr("fill", "#4B5563") // text-gray-600
-            .attr("font-size", "12px")
-            .attr("font-weight", "500")
+            .attr("fill", "#aaa")
+            .attr("font-size", "10px")
+            .attr("font-family", "Plus Jakarta Sans")
+            .attr("font-weight", "bold")
             .attr("pointer-events", "none");
 
         // Simulation tick updates
@@ -109,16 +110,14 @@ const CharacterGraph = ({ data }) => {
 
     if (!data || !data.interaction_graph?.nodes || data.interaction_graph.nodes.length === 0) {
         return (
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 h-full flex flex-col justify-center items-center text-gray-500 text-sm">
-                <h3 className="text-gray-500 font-semibold text-sm mb-2 uppercase tracking-wider w-full text-left">Character Graph</h3>
-                <p>No character interactions detected in this segment.</p>
+            <div className="h-full flex flex-col justify-center items-center text-gray-700 text-xs py-10">
+                <p className="font-mono uppercase tracking-widest">No character interactions detected</p>
             </div>
         );
     }
 
     return (
-        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 h-full">
-            <h3 className="text-gray-500 font-semibold text-sm mb-2 uppercase tracking-wider">Character Interactions</h3>
+        <div className="w-full h-full">
             <div className="flex justify-center w-full">
                 <svg ref={svgRef} viewBox="0 0 400 300" className="w-full h-auto max-w-sm"></svg>
             </div>
