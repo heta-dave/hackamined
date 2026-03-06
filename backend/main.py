@@ -4,6 +4,7 @@ sys.path.append(os.path.dirname(__file__))
 import asyncio
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from google import genai
 from dotenv import load_dotenv
 load_dotenv()
@@ -12,7 +13,12 @@ import json
 # Import our AI modules
 from ai_engine import emotion, cliffhanger
 from ai_engine.aggregator import NarrativeDNAAggregator
-from models.schemas import StoryRequest, ArcResponse, AnalysisRequest, AnalyticsResponse, Episode, ImprovementRequest, ImprovementResponse
+from models.schemas import (
+    StoryRequest, ArcResponse, AnalysisRequest, AnalyticsResponse,
+    Episode, ImprovementRequest, ImprovementResponse,
+    StyleSuggestionRequest, StyleSuggestionResponse, SuggestedStyle,
+    VideoGenerationRequest, VideoGenerationResponse,
+)
 
 load_dotenv(override=True)
 
@@ -178,3 +184,140 @@ async def improve_cliffhanger(request: ImprovementRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+# ── Video Generation Endpoints ────────────────────────────────────────────────
+
+STYLE_OPTIONS = {
+    "shot_styles": ["close_up", "wide_shot", "tracking_shot", "drone", "dutch_angle", "over_shoulder"],
+    "cinematic_styles": ["neon_noir", "golden_hour", "desaturated", "high_contrast_bw", "vibrant_pop", "earth_tones", "teal_orange"],
+    "moods": ["thriller", "drama", "action", "romance", "mystery", "sci_fi"],
+    "resolutions": ["480p", "720p"],
+}
+
+@app.get("/video_style_options")
+async def get_video_style_options():
+    """Return the available style options for the video generator."""
+    return STYLE_OPTIONS
+
+
+@app.post("/suggest_style", response_model=StyleSuggestionResponse)
+async def suggest_style(request: StyleSuggestionRequest):
+    """Use Gemini to predict the best cinematic style for the given script."""
+    if not client:
+        # Demo fallback
+        fallback = SuggestedStyle(
+            shot_style="wide_shot",
+            cinematic_style="teal_orange",
+            mood="drama",
+            resolution="480p",
+            reasoning="Default Hollywood cinematic style optimized for dramatic storytelling."
+        )
+        return StyleSuggestionResponse(suggested=fallback, alternatives=[
+            SuggestedStyle(shot_style="tracking_shot", cinematic_style="neon_noir", mood="thriller", resolution="480p", reasoning="High-energy thriller aesthetic."),
+            SuggestedStyle(shot_style="drone", cinematic_style="golden_hour", mood="drama", resolution="720p", reasoning="Sweeping cinematic drama feel."),
+        ])
+    
+    prompt = f"""
+    You are an expert cinematographer and visual storytelling director.
+    Analyze this episode script and suggest the BEST cinematic style for a 90-second video.
+
+    Episode Title: {request.episode_title}
+    Genre: {request.genre}
+    Script excerpt:
+    \"\"\"{request.script_text[:800]}\"\"\"
+
+    Available shot_styles: {STYLE_OPTIONS['shot_styles']}
+    Available cinematic_styles: {STYLE_OPTIONS['cinematic_styles']}
+    Available moods: {STYLE_OPTIONS['moods']}
+    Available resolutions: ["480p", "720p"]
+
+    Return ONLY valid JSON with this exact structure:
+    {{
+        "suggested": {{
+            "shot_style": "one from the list",
+            "cinematic_style": "one from the list",
+            "mood": "one from the list",
+            "resolution": "480p or 720p",
+            "reasoning": "1-2 sentence explanation of why this style fits the story"
+        }},
+        "alternatives": [
+            {{"shot_style": "...", "cinematic_style": "...", "mood": "...", "resolution": "...", "reasoning": "..."}},
+            {{"shot_style": "...", "cinematic_style": "...", "mood": "...", "resolution": "...", "reasoning": "..."}}
+        ]
+    }}
+    """
+    
+    try:
+        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+        text = response.text.replace("```json", "").replace("```", "").strip()
+        data = json.loads(text)
+        return StyleSuggestionResponse(
+            suggested=SuggestedStyle(**data["suggested"]),
+            alternatives=[SuggestedStyle(**a) for a in data.get("alternatives", [])]
+        )
+    except Exception as e:
+        print(f"Error in suggest_style: {e}")
+        fallback = SuggestedStyle(
+            shot_style="wide_shot", cinematic_style="teal_orange", mood="drama",
+            resolution="480p", reasoning="Default cinematic style."
+        )
+        return StyleSuggestionResponse(suggested=fallback, alternatives=[])
+
+
+# Track generation jobs in memory
+_video_jobs: dict = {}
+
+def _run_video_generation(job_id: str, request_data: dict):
+    """Background task that runs the actual diffusion generation."""
+    from ai_engine.video_generator import generate_episode_video
+    _video_jobs[job_id] = {"status": "generating", "progress": 0}
+    try:
+        result = generate_episode_video(
+            script_segments=request_data["script_segments"],
+            shot_style=request_data["shot_style"],
+            cinematic_style=request_data["cinematic_style"],
+            mood=request_data["mood"],
+            resolution=request_data["resolution"],
+            job_id=job_id,
+        )
+        _video_jobs[job_id] = {"status": "done", **result}
+    except Exception as e:
+        _video_jobs[job_id] = {"status": "error", "error": str(e)}
+
+
+@app.post("/generate_video", response_model=VideoGenerationResponse)
+async def generate_video(request: VideoGenerationRequest, background_tasks: BackgroundTasks):
+    """Start a 90-second video generation job in the background using Wan2.2."""
+    import uuid
+    job_id = str(uuid.uuid4())[:8]
+    _video_jobs[job_id] = {"status": "queued"}
+    background_tasks.add_task(_run_video_generation, job_id, request.model_dump())
+    return VideoGenerationResponse(
+        job_id=job_id,
+        video_filename=f"episode_{job_id}.mp4",
+        clips_generated=0,
+        duration_seconds=90.0,
+        status="queued",
+        message=f"Video generation started. Job ID: {job_id}. Poll /video_status/{job_id} for updates."
+    )
+
+
+@app.get("/video_status/{job_id}")
+async def get_video_status(job_id: str):
+    """Poll for the status of a video generation job."""
+    job = _video_jobs.get(job_id)
+    if not job:
+        return {"status": "not_found", "job_id": job_id}
+    return {"job_id": job_id, **job}
+
+
+@app.get("/video/{filename}")
+async def serve_video(filename: str):
+    """Serve a generated video file."""
+    video_dir = os.path.join(os.path.dirname(__file__), "generated_videos")
+    path = os.path.join(video_dir, filename)
+    if not os.path.exists(path):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Video not found")
+    return FileResponse(path, media_type="video/mp4", filename=filename)

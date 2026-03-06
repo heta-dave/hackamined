@@ -37,3 +37,36 @@ class AnalyticsResponse(BaseModel):
     tension_graph: Dict[str, Any]
     scroll_stop_score: float
     narrative_dna: Optional[Dict[str, Any]] = None
+
+# ── Video Generation Schemas ──────────────────────────────────────────────────
+
+class StyleSuggestionRequest(BaseModel):
+    script_text: str
+    genre: str = "drama"
+    episode_title: str = "Episode 1"
+
+class SuggestedStyle(BaseModel):
+    shot_style: str
+    cinematic_style: str 
+    mood: str
+    resolution: str
+    reasoning: str
+
+class StyleSuggestionResponse(BaseModel):
+    suggested: SuggestedStyle
+    alternatives: List[SuggestedStyle]
+
+class VideoGenerationRequest(BaseModel):
+    script_segments: List[str]
+    shot_style: str = "wide_shot"
+    cinematic_style: str = "teal_orange"
+    mood: str = "drama"
+    resolution: str = "480p"
+
+class VideoGenerationResponse(BaseModel):
+    job_id: str
+    video_filename: str
+    clips_generated: int
+    duration_seconds: float
+    status: str
+    message: str

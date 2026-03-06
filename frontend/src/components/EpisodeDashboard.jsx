@@ -5,6 +5,7 @@ import RetentionHeatmap from './charts/RetentionHeatmap';
 import CharacterGraph from './charts/CharacterGraph';
 import ViralMoments from './charts/ViralMoments';
 import CliffhangerMeter from './charts/CliffhangerMeter';
+import VideoGenerator from './VideoGenerator';
 
 const EpisodeDashboard = ({ episodes }) => {
   const [selectedEp, setSelectedEp] = useState(null);
@@ -157,6 +158,9 @@ const EpisodeDashboard = ({ episodes }) => {
                 </div>
               )}
             </div>
+
+            {/* Video Generator — only show for first episode */}
+            <VideoGenerator episode={selectedEp} genre="drama" />
           </div>
         ) : null}
       </div>
