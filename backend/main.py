@@ -218,7 +218,7 @@ async def suggest_style(request: StyleSuggestionRequest):
     
     prompt = f"""
     You are an expert cinematographer and visual storytelling director.
-    Analyze this episode script and suggest the BEST cinematic style for a 90-second video.
+    Analyze this episode script and suggest the BEST cinematic style for a 3-second style preview video.
 
     Episode Title: {request.episode_title}
     Genre: {request.genre}
@@ -284,6 +284,7 @@ def _run_video_generation(job_id: str, request_data: dict):
             cinematic_style=request_data["cinematic_style"],
             mood=request_data["mood"],
             resolution=request_data["resolution"],
+            mode=request_data.get("mode", "preview"),
             job_id=job_id,
             progress_callback=on_progress,
         )
@@ -299,11 +300,12 @@ async def generate_video(request: VideoGenerationRequest, background_tasks: Back
     job_id = str(uuid.uuid4())[:8]
     _video_jobs[job_id] = {"status": "queued"}
     background_tasks.add_task(_run_video_generation, job_id, request.model_dump())
+    duration = 3.0 if request.mode == "preview" else 90.0
     return VideoGenerationResponse(
         job_id=job_id,
         video_filename=f"episode_{job_id}.mp4",
         clips_generated=0,
-        duration_seconds=90.0,
+        duration_seconds=duration,
         status="queued",
         message=f"Video generation started. Job ID: {job_id}. Poll /video_status/{job_id} for updates."
     )

@@ -27,9 +27,9 @@ export const suggestStyle = async (script_text, genre, episode_title) => {
     return response.data;
 };
 
-export const generateVideo = async (script_segments, shot_style, cinematic_style, mood, resolution) => {
+export const generateVideo = async (script_segments, shot_style, cinematic_style, mood, resolution, mode) => {
     const response = await axios.post(`${API_URL}/generate_video`, {
-        script_segments, shot_style, cinematic_style, mood, resolution
+        script_segments, shot_style, cinematic_style, mood, resolution, mode
     });
     return response.data;
 };

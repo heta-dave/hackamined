@@ -8,3 +8,6 @@ numpy
 scikit-learn
 python-dotenv
 spacy
+fal-client
+requests
+imageio

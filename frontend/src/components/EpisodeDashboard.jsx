@@ -18,13 +18,14 @@ const EpisodeDashboard = ({ episodes }) => {
   const [loading, setLoading] = useState(false);
   const [improvementData, setImprovementData] = useState(null);
   const [improving, setImproving] = useState(false);
-  const [activeTab, setActiveTab] = useState('analytics');
+  const [showVideoGen, setShowVideoGen] = useState(false);
 
   const handleSelectEpisode = async (episode) => {
     setSelectedEp(episode);
     setLoading(true);
     setAnalytics(null);
     setImprovementData(null);
+    setShowVideoGen(false);
     try {
       const data = await analyzeStory(episode.script_segment);
       setAnalytics(data);
@@ -132,6 +133,16 @@ const EpisodeDashboard = ({ episodes }) => {
                 Auto-Improve Cliffhanger
               </>
             )}
+          </button>
+          
+          <button
+            onClick={() => setShowVideoGen(!showVideoGen)}
+            className={`px-6 py-2.5 rounded-full font-bold text-sm transition-all shadow-lg flex items-center gap-2 ${showVideoGen ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-100 text-black hover:bg-gray-200'}`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            {showVideoGen ? "Hide Video Generator" : "Show Video Generator"}
           </button>
         </div>
       </div>
@@ -260,6 +271,13 @@ const EpisodeDashboard = ({ episodes }) => {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+              
+              {/* Video Generator Section */}
+              {showVideoGen && (
+                <div className="mt-8 animate-in slide-in-from-bottom-4 duration-500">
+                   <VideoGenerator episode={selectedEp} genre="drama" />
                 </div>
               )}
             </div>

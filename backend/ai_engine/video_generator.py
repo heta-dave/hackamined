@@ -1,33 +1,26 @@
 """
 video_generator.py
-Handles all video generation logic for the VBOX Engine.
-Uses Wan-AI/Wan2.2-T2V-A14B-Diffusers for text-to-video generation.
-Each clip is ~5s; 18 clips are concatenated for ~90 seconds total.
+Handles all video generation logic for the VBOX Engine using Replicate.
+Uses wan-video/wan2.1-1.3b for text-to-video generation.
 """
 
 import os
 import uuid
-import json
 import tempfile
 import subprocess
+import requests
 from typing import List, Dict, Any
-
-import torch
-import numpy as np
 import imageio
-from diffusers import WanPipeline
-from diffusers.schedulers.scheduling_unipc_multistep import UniPCMultistepScheduler
+
+import fal_client
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT_DIR = os.path.join(BACKEND_DIR, "generated_videos")
+OUTPUT_DIR = os.path.join(BACKEND_DIR, "generated_videos")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-MODEL_ID = "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"  # Consumer-friendly model; works on 4GB+ GPUs via CPU offloading
-
-# Shot duration constants
-FRAMES_PER_CLIP = 81          # ~5 seconds at 16fps (default for Wan2.2)
-NUM_CLIPS = 18                # 18 × 5s = 90s
+MODEL_URL = "fal-ai/wan-t2v"
 TARGET_FPS = 16
 
 # ── Cinematic Style Definitions ────────────────────────────────────────────────
@@ -61,6 +54,18 @@ MOODS = {
 
 # ── Internal Helpers ──────────────────────────────────────────────────────────
 
+def _build_style_prompt(shot_style: str, cinematic_style: str, mood: str) -> str:
+    """Build a rich, cinematic T2V prompt demonstrating the visual style."""
+    shot_desc = SHOT_STYLES.get(shot_style, SHOT_STYLES["wide_shot"])
+    visual_desc = CINEMATIC_STYLES.get(cinematic_style, CINEMATIC_STYLES["teal_orange"])
+    mood_desc = MOODS.get(mood, MOODS["drama"])
+    
+    return (
+        f"A breathtaking cinematic test shot, {shot_desc}, {visual_desc}, {mood_desc}, "
+        f"masterful cinematography, 4K cinematic quality, "
+        f"professional film production, award-winning visuals, ultra-realistic"
+    )
+
 def _build_scene_prompt(base_prompt: str, shot_style: str, cinematic_style: str, mood: str, scene_num: int, total_scenes: int) -> str:
     """Build a rich, cinematic T2V prompt for a given scene."""
     shot_desc = SHOT_STYLES.get(shot_style, SHOT_STYLES["wide_shot"])
@@ -85,53 +90,15 @@ def _build_scene_prompt(base_prompt: str, shot_style: str, cinematic_style: str,
         f"professional film production, award-winning visuals, ultra-realistic"
     )
 
-
-def _load_pipeline():
-    """Load the Wan2.1-T2V-1.3B pipeline with CPU offloading for low-VRAM GPUs."""
-    try:
-        print(f"[video_generator] Loading Wan2.1-1.3B pipeline from {MODEL_ID}...")
-        
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        # Use float16 on GPU, float32 on CPU to avoid precision errors
-        dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-        
-        pipe = WanPipeline.from_pretrained(
-            MODEL_ID,
-            torch_dtype=dtype,
-        )
-        
-        pipe.scheduler = UniPCMultistepScheduler.from_config(
-            pipe.scheduler.config, flow_shift=8.0
-        )
-        
-        if torch.cuda.is_available():
-            # Sequential offload keeps only one component on GPU at a time
-            # Best strategy for 4GB VRAM — slower but won't OOM
-            pipe.enable_sequential_cpu_offload()
-        else:
-            pipe = pipe.to("cpu")
-            print("[video_generator] No GPU found, running fully on CPU (very slow).")
-            
-        print(f"[video_generator] Pipeline ready.")
-        return pipe
-    except Exception as e:
-        print(f"[video_generator] ERROR loading pipeline: {e}")
-        raise
-
-
-def _export_clip(frames, fps: int, out_path: str):
-    """Export a list of PIL frames to an MP4 using imageio."""
-    try:
-        writer = imageio.get_writer(out_path, fps=fps, codec="libx264", quality=8)
-        for frame in frames:
-            writer.append_data(np.array(frame))
-        writer.close()
-    except Exception as e:
-        raise RuntimeError(f"Failed to export clip: {e}")
-
+def _download_video(url: str, output_path: str):
+    response = requests.get(url, stream=True)
+    response.raise_for_status()
+    with open(output_path, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
 
 def _concatenate_clips_ffmpeg(clip_paths: List[str], output_path: str):
-    """Use ffmpeg (if available) to concatenate clips into a single video."""
+    """Use ffmpeg to concatenate clips into a single video."""
     list_file = output_path.replace(".mp4", "_list.txt")
     with open(list_file, "w") as f:
         for cp in clip_paths:
@@ -141,29 +108,11 @@ def _concatenate_clips_ffmpeg(clip_paths: List[str], output_path: str):
         "ffmpeg", "-y", "-f", "concat", "-safe", "0",
         "-i", list_file, "-c", "copy", output_path
     ]
-    result = subprocess.run(cmd, capture_output=True)
-    os.remove(list_file)
-    
-    if result.returncode != 0:
-        # Fallback: use imageio directly if ffmpeg not available
-        _concatenate_clips_imageio(clip_paths, output_path)
-
-
-def _concatenate_clips_imageio(clip_paths: List[str], output_path: str):
-    """Fallback concatenation using imageio directly."""
-    writer = imageio.get_writer(output_path, fps=TARGET_FPS, codec="libx264", quality=8)
-    for cp in clip_paths:
-        reader = imageio.get_reader(cp)
-        for frame in reader:
-            writer.append_data(frame)
-        reader.close()
-    writer.close()
-
+    subprocess.run(cmd, capture_output=True)
+    if os.path.exists(list_file):
+        os.remove(list_file)
 
 # ── Public Interface ───────────────────────────────────────────────────────────
-
-_pipeline = None  # module-level cache to avoid reloading
-
 
 def generate_episode_video(
     script_segments: List[str],
@@ -171,80 +120,88 @@ def generate_episode_video(
     cinematic_style: str = "teal_orange",
     mood: str = "drama",
     resolution: str = "480p",
+    mode: str = "preview",
     job_id: str = None,
     progress_callback = None,
 ) -> Dict[str, Any]:
     """
-    Generate a ~90-second video from a list of script segments.
-    
-    Args:
-        script_segments: List of scene descriptions / script lines.
-        shot_style: Key from SHOT_STYLES dict.
-        cinematic_style: Key from CINEMATIC_STYLES dict.
-        mood: Key from MOODS dict.
-        resolution: "480p" or "720p".
-        job_id: Optional unique identifier for the job.
-    
-    Returns:
-        dict with keys: video_path, clips_generated, duration_seconds, job_id
+    Generate a video using Replicate API. 
+    If mode == "preview", generates 1 style clip (approx 5s).
+    If mode == "full", generates 18 clips for a ~90s episode.
     """
-    global _pipeline
-    
     if job_id is None:
         job_id = str(uuid.uuid4())[:8]
     
     job_dir = os.path.join(OUTPUT_DIR, job_id)
     os.makedirs(job_dir, exist_ok=True)
     
-    width, height = (854, 480) if resolution == "480p" else (1280, 720)
-    
-    # Distribute script segments evenly across NUM_CLIPS scenes
+    num_clips = 1 if mode == "preview" else 18
     prompts = []
-    for i in range(NUM_CLIPS):
-        seg_idx = min(i * len(script_segments) // NUM_CLIPS, len(script_segments) - 1)
-        base = script_segments[seg_idx] if script_segments else "cinematic scene"
-        prompts.append(_build_scene_prompt(base, shot_style, cinematic_style, mood, i + 1, NUM_CLIPS))
     
-    # Load pipeline (cached after first call)
-    if _pipeline is None:
-        _pipeline = _load_pipeline()
-    
+    if mode == "preview":
+        prompts.append(_build_style_prompt(shot_style, cinematic_style, mood))
+    else:
+        for i in range(num_clips):
+            seg_idx = min(i * len(script_segments) // num_clips, len(script_segments) - 1)
+            base = script_segments[seg_idx] if script_segments else "cinematic scene"
+            prompts.append(_build_scene_prompt(base, shot_style, cinematic_style, mood, i + 1, num_clips))
+            
     clip_paths = []
-    print(f"[video_generator] Generating {NUM_CLIPS} clips for job {job_id}...")
+    clip_paths = []
+    print(f"[video_generator] Generating {num_clips} clips for job {job_id} using Fal.ai...")
     
     for i, prompt in enumerate(prompts):
         clip_path = os.path.join(job_dir, f"clip_{i:02d}.mp4")
-        print(f"[video_generator] Generating clip {i+1}/{NUM_CLIPS}: {prompt[:60]}...")
+        print(f"[video_generator] Generating clip {i+1}/{num_clips}: {prompt[:60]}...")
         
-        output = _pipeline(
-            prompt=prompt,
-            negative_prompt="blurry, low quality, distorted, watermark, text overlay, static, poor lighting",
-            height=height,
-            width=width,
-            num_frames=FRAMES_PER_CLIP,
-            guidance_scale=6.0,
-            num_inference_steps=20,  # Reduced from 30 for speed on low VRAM
-        )
-        
-        frames = output.frames[0]  # List[PIL.Image]
-        _export_clip(frames, TARGET_FPS, clip_path)
-        clip_paths.append(clip_path)
-        print(f"[video_generator] Clip {i+1} saved: {clip_path}")
+        try:
+            output = fal_client.subscribe(
+                MODEL_URL,
+                arguments={
+                    "prompt": prompt,
+                    "aspect_ratio": "16:9"
+                }
+            )
+            
+            # Fal returns {"video": {"url": "..."}} typically
+            if "video" in output and isinstance(output["video"], dict) and "url" in output["video"]:
+                video_url = output["video"]["url"]
+            elif "url" in output:
+                video_url = output["url"]
+            else:
+                raise ValueError(f"Unexpected Fal.ai response format: {output}")
+            
+            print(f"[video_generator] Downloading clip from {video_url}...")
+            _download_video(video_url, clip_path)
+            clip_paths.append(clip_path)
+            print(f"[video_generator] Clip {i+1} saved: {clip_path}")
+            
+        except Exception as e:
+            print(f"[video_generator] Error on clip {i+1}: {e}")
+            raise RuntimeError(f"Fal.ai API error: {e}")
+            
         if progress_callback:
-            progress_callback(i + 1, NUM_CLIPS)
-    
-    # Concatenate all clips
-    final_path = os.path.join(OUTPUT_DIR, f"episode_{job_id}.mp4")
-    print(f"[video_generator] Concatenating {len(clip_paths)} clips -> {final_path}")
-    _concatenate_clips_ffmpeg(clip_paths, final_path)
-    
-    duration = NUM_CLIPS * (FRAMES_PER_CLIP / TARGET_FPS)
-    print(f"[video_generator] Done! Video saved at {final_path} (~{duration:.0f}s)")
+            progress_callback(i + 1, num_clips)
+            
+    if mode == "preview":
+        import shutil
+        final_path = os.path.join(OUTPUT_DIR, f"style_preview_{job_id}.mp4")
+        shutil.copy(clip_paths[0], final_path)
+        final_filename = f"style_preview_{job_id}.mp4"
+        duration = 5.0 # usually ~5s
+    else:
+        final_path = os.path.join(OUTPUT_DIR, f"episode_{job_id}.mp4")
+        print(f"[video_generator] Concatenating {len(clip_paths)} clips -> {final_path}")
+        _concatenate_clips_ffmpeg(clip_paths, final_path)
+        final_filename = f"episode_{job_id}.mp4"
+        duration = len(clip_paths) * 5.0
+
+    print(f"[video_generator] Done! Video saved at {final_path} (~{duration:.1f}s)")
     
     return {
         "job_id": job_id,
         "video_path": final_path,
-        "video_filename": f"episode_{job_id}.mp4",
+        "video_filename": final_filename,
         "clips_generated": len(clip_paths),
         "duration_seconds": duration,
     }

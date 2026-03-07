@@ -62,6 +62,7 @@ class VideoGenerationRequest(BaseModel):
     cinematic_style: str = "teal_orange"
     mood: str = "drama"
     resolution: str = "480p"
+    mode: str = "preview"
 
 class VideoGenerationResponse(BaseModel):
     job_id: str

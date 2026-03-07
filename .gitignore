@@ -56,3 +56,9 @@ backend/training_data/
 
 # Error logs
 backend/error.txt
+
+# Testing scripts and generated content
+backend/test_fal_api*.py
+backend/sanity_check_fal.py
+backend/generated_videos/
+.env
